@@ -18,8 +18,9 @@ public class Entropy3 extends Attribute {
    static ArrayList<Attribute> attr_all = new ArrayList<Attribute>();
    static ArrayList<ArrayList<String>> lines = new ArrayList<ArrayList<String>>();
    static ArrayList<ArrayList<String>> lines_test = new ArrayList<ArrayList<String>>();
+   static ArrayList<ArrayList<String>> lines_chi_table = new ArrayList<ArrayList<String>>();
    static boolean root_status = false;
-   
+   static HashMap<ArrayList<String>, String> chi_map =  new HashMap<ArrayList<String>, String>();
     static Attribute root = new Attribute();
     static ArrayList<ArrayList<String>> data_latest = new ArrayList<ArrayList<String>>();
 	static ArrayList<ArrayList<ArrayList<String>>> data_split_latest= new ArrayList<ArrayList<ArrayList<String>>>();
@@ -47,6 +48,7 @@ public class Entropy3 extends Attribute {
 	static double ENTROPY;
 	static int attributeIndex;
 	static int stop = 0;
+	static int stop_mis = 0;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -54,6 +56,7 @@ public class Entropy3 extends Attribute {
 		Attribute prime = new Attribute();
 		prime.h.put("class",cla);                		
 		attr_all.add(prime);
+		
 		
 		try{
             BufferedReader buf = new BufferedReader(new FileReader("C:/KC/UNM/Spring 2016/Machine Learning/Project1/data/training3.txt"));
@@ -135,18 +138,6 @@ public class Entropy3 extends Attribute {
             sum = sum+ man.get(z).size();
             
             	}
-            	//System.out.println("Total: "+String.valueOf(sum));
- /*           	ArrayList<Attribute> temp = new ArrayList<Attribute>(attr_all);
-            	temp.remove(attr_all.get(0));
-            	System.out.println("Attributes: ");
-            	for (int l = 0; l<temp.size();l++)
-            	{
-            		System.out.println(temp.get(l).h.keySet().toArray(new String[temp.get(l).h.size()])[0]);
-            	}*/
-            	
-            //	System.out.println("MaxError Attribute: "+get_attr_maxerr(lines, temp).h.keySet());
-           //     System.out.println("Miserror of "+attr_all.get(17).h.keySet()+" is "+String.valueOf(cal_miserr(lines, attr_all.get(17))));
-
             buf2.close();
         }catch(Exception e){
             e.printStackTrace();
@@ -183,6 +174,35 @@ public class Entropy3 extends Attribute {
             e.printStackTrace();
         }
         
+        try{
+            BufferedReader buf = new BufferedReader(new FileReader("C:/KC/UNM/Spring 2016/Machine Learning/Project1/data/chi_square_table.txt"));
+            ArrayList<String> words;
+            String lineJustFetched = null;
+            String[] charsArray;
+         
+            while(true){
+                lineJustFetched = buf.readLine();
+                if(lineJustFetched == null){  
+                    break; 
+                }
+                else{	charsArray = lineJustFetched.split(",");
+	                	words=new ArrayList<String>();
+	                	for(String eachchar : charsArray){
+	                		words.add(eachchar);
+	                	}
+	                	lines_chi_table.add(words);                        	               	
+                    }
+                    }
+           // System.out.println(lines.size());
+            //System.out.println(cal_entropy(lines)); 
+            buf.close();
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        
+        // Mapping to get chi-map from chi_square_table.txt
+        chi_map = get_chi_map(lines_chi_table);
+        
 		// TODO Auto-generated method stub
 		ArrayList<ArrayList<String>> lines1 = new ArrayList<ArrayList<String>>();
 		
@@ -201,7 +221,14 @@ public class Entropy3 extends Attribute {
         Attribute A = get_Attribute_from_index(attributeIndex);
         System.out.println("A from index: "+ A.h.keySet().toArray(new String[A.h.size()])[0]);
         
-        String result = build_decision_tree_gain(lines);
+        /*System.out.println("get_p_from_data: "+get_p_from_data(lines));
+        System.out.println("get e from data: "+ get_e_from_data(lines));*/
+        
+        /*System.out.println("chi_map developed: "+chi_map);
+        System.out.println("A's (or) "+getOnlyKeyFromHashMap(A.h)+" 's "+ "unique values: "+A.h.get(getOnlyKeyFromHashMap(A.h)) );
+        */
+        
+        String result = build_decision_tree(lines);
         System.out.println("End of decision tree: "+ result);
         ArrayList<String> cal_decision_value = new ArrayList<String>();
         cal_decision_value = cal_decision_value(lines_test);
@@ -217,7 +244,35 @@ public class Entropy3 extends Attribute {
         	}
         }
         System.out.println("% of matches with testing set "+ (double)((count/cal_decision_value.size())*100));
+    
         
+	}
+	
+	public static HashMap<ArrayList<String>, String> get_chi_map(ArrayList<ArrayList<String>> S)
+	{
+		HashMap<ArrayList<String>, String> chi_temp_map = new HashMap<ArrayList<String>, String>();
+		ArrayList<String> A = new ArrayList<String>();
+		for (int i=0; i<S.size();i++)
+		{
+			for (int j=0;j<3;j++)
+			{
+				A = new ArrayList<String>();
+				A.add(S.get(i).get(0));
+				if (j==0)
+				{
+					A.add("alpha=0.5");
+				}
+				else if(j==1)
+				{
+					A.add("alpha=0.05");
+				}
+				else A.add("alpha=0.01");
+				
+				chi_temp_map.put(A,S.get(i).get(j+1));
+			}
+		}
+		return chi_temp_map;
+		
 	}
 	
 	public static double cal_entropy(ArrayList<ArrayList<String>> S){
@@ -236,15 +291,15 @@ public class Entropy3 extends Attribute {
 					e = e+1;
 				}
 		}
-		System.out.println("p value: "+p);
-		System.out.println("e value: "+e);
+/*		System.out.println("p value: "+p);
+		System.out.println("e value: "+e);*/
 		
 		k1 = p/S.size();
 		k2 = e/S.size();
 		if (p==S.size()) {k2 = 1;}
 		if (e==S.size()) {k1 = 1;}
 		ent = ((k1)*(Math.log(k1)/Math.log(2))) + ((k2)*(Math.log(k2)/Math.log(2))); 
-		System.out.println("ent value: "+ent);
+		//System.out.println("ent value: "+ent);
 		if (ent==0) {return 0;}
 		return -ent;
 	};
@@ -325,9 +380,29 @@ public class Entropy3 extends Attribute {
 		return (cal_entropy(S)-sum);
 	}
 	
+	public static double cal_miserr_data(ArrayList<ArrayList<String>> data)
+	{
+		double result = 0;
+		int p=0,e=0;
+		double maxi =0;
+		for (int i = 0; i<data.size();i++)
+		{
+			if(data.get(i).get(0).equals("p"))
+			{
+				p++;
+			}
+			else e++;
+		}
+		maxi = Math.max(p, e);
+		result = (maxi/data.size());
+		return result;
+	}
+	
 	public static double cal_miserr(ArrayList<ArrayList<String>> data, Attribute A)
 	{
 		double err = 0;
+		double err_data = 0;
+		err_data = cal_miserr_data(data);
 		double p = 0, e = 0, p_prime =0 , e_prime = 0;;
 		ArrayList<ArrayList<ArrayList<String>>> data_after_split= split_data(data,A);
 		//System.out.println("cal_miserr()  %%%%%%%  Data Split size: "+data_after_split.size());
@@ -352,19 +427,10 @@ public class Entropy3 extends Attribute {
 				p_prime = 1;
 				e_prime = 1;
 			}
-			/*System.out.println("ar size after "+i+" th iteration is "+ar.size());
-			System.out.println("p after "+i+" th iteration is "+p);
-			System.out.println("p_prime after "+ i +"th position is " +p_prime);
-			System.out.println("e after "+i+" th iteration is "+e);
-			System.out.println("e_prime after "+ i +"th position is " +e_prime);*/
-			
-			/*System.out.println(ar.size());
-			System.out.println(data.size());
-			System.out.println((double)ar.size()/data.size());
-*/			err = err + ((1-Math.max(p_prime,e_prime))* (double)ar.size()/data.size());
+			err = err + ((1-Math.max(p_prime,e_prime))* (double)ar.size()/data.size());
 			//System.out.println("err after "+i+" th iteration is "+err);
 		}
-		return err;
+		return (err_data - err);
 	}
 	
 	public static int get_prime(ArrayList<ArrayList<String>> data, Attribute A)
@@ -391,6 +457,7 @@ public class Entropy3 extends Attribute {
 	{
 		Attribute A = new Attribute();
 		double e = -1,max_err = e;
+		//System.out.println("mis_err_data value: "+cal_miserr_data(S));
 		//System.out.println("get_attr_maxerr() %%%%%%% Data under consideration: "+S);
 		for (int p = 0; p<attr_current.size();p++)
 		{	
@@ -401,7 +468,7 @@ public class Entropy3 extends Attribute {
 				A = attr_current.get(p);
 			}
 		}
-		//System.out.println("get_attr_maxerr() %%%%%%% Maximum error: " +String.format("%.5g%n", max_err));
+		//System.out.println("get_attr_maxerr() %%%%%%% Maximum error: " +String.format("%.5g%n", max_err)+" for attribute : "+A.h.keySet().toArray(new String[A.h.size()])[0]);
 		return A;
 	}
 	
@@ -449,6 +516,38 @@ public class Entropy3 extends Attribute {
  		return null;
  	}
  	
+ 	public static double get_p_from_data(ArrayList<ArrayList<String>> S)
+ 	{
+ 		double res=0;
+		double p=0,e=0;
+		String str = "";
+		for (int i= 0; i<S.size();i++)
+		{
+			str = S.get(i).get(0);
+			if(str.equals("p"))	
+			{
+				res++;
+			}
+		}
+		return res;
+ 	}
+
+ 	public static double get_e_from_data(ArrayList<ArrayList<String>> S)
+ 	{
+ 		double res=0;
+		double p=0,e=0;
+		String str = "";
+		for (int i= 0; i<S.size();i++)
+		{
+			str = S.get(i).get(0);
+			if(str.equals("e"))	
+			{
+				res++;
+			}
+		}
+		return res;
+ 	}
+ 	 	
  	public static String build_decision_tree(ArrayList<ArrayList<String>> data)
 	{
 		//System.out.println("Size of attr_all: "+ attr_all.size());
@@ -462,6 +561,7 @@ public class Entropy3 extends Attribute {
 		HashMap<ArrayList<ArrayList<String>>, Attribute> child_parent = null;
 		Attribute p_temp = new Attribute();
 		ArrayList<ArrayList<String>> data_lat_temp = new ArrayList<ArrayList<String>>();
+		double ch_p=0, ch_e=0,ch_pi_prime = 0, ch_ei_prime = 0, ch_pi = 0, ch_ei = 0, chi_square = 0;
 
 	try{
 		if (!root_status){
@@ -476,7 +576,7 @@ public class Entropy3 extends Attribute {
 			}
 			root = get_attr_maxerr(data_latest,attr_list_latest);
 			attr_latest = root;
-			//System.out.println("Attr with max error: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+			System.out.println("Attr with max error: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
 			Attribute rem = attr_list_latest.remove(attr_list_latest.indexOf(attr_latest));
 			/*System.out.println("remove: "+rem.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
 			System.out.println("Size of attr_list_latest after removing root: "+attr_list_latest.size());
@@ -492,26 +592,59 @@ public class Entropy3 extends Attribute {
 		System.out.println("attr_latest at beginning: "+ (attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]));
 		System.out.println("key_final at beginning of loop: "+key_final);*/
 		unique_latest = attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
-		/*System.out.println("Unique elements: "+ unique_latest);
-		System.out.println("Size of unique_latest: "+ unique_latest.size());
-		*/
+		System.out.println("Unique elements: "+ unique_latest);
+		//System.out.println("Size of unique_latest: "+ unique_latest.size());
+		
 		data_split_latest = split_data(data_latest,attr_latest);
 		//System.out.println("Split data latest: "+ data_split_latest);
 		Attribute latest_temp = new Attribute();
 		//latest_temp = attr_latest;
 		ArrayList<String> key_temp = new ArrayList<String>();
 		data_lat_temp = data_latest;
+		ch_p = get_p_from_data(data_latest);
+		ch_e = get_e_from_data(data_latest);
+		chi_square = 0;
+		
 		
 		for (int f = 0; f<unique_latest.size();f++)
 		{
+			stop_mis++;
 			latest_temp = attr_latest;
 			data_latest = data_split_latest.get(f);
+			
+			ch_pi = get_p_from_data(data_latest);
+			ch_ei = get_e_from_data(data_latest);
+			ch_pi_prime = ch_p*((ch_pi+ch_ei)/(ch_p+ch_e));
+			ch_ei_prime = ch_e*((ch_pi+ch_ei)/(ch_p+ch_e));
+			System.out.println("value ch_pi: "+ch_pi +"---"+ "value ch_ei: "+ch_ei +"---"+
+					"value ch_pi_prime: "+ch_pi_prime +"---"+"value ch_ei_prime: "+ch_ei_prime +"---");
+			if (ch_pi_prime==0 && ch_ei_prime==0)
+			{
+				chi_square = chi_square;
+				System.out.println("if clause: "+ chi_square);
+			}
+			else if (ch_pi_prime==0)
+			{
+				chi_square = chi_square + (Math.pow((ch_ei-ch_ei_prime),2)/ch_ei_prime);
+				System.out.println("else if1 clause: "+ chi_square);
+			}
+			else if(ch_ei_prime==0)
+			{
+				chi_square = chi_square + (Math.pow((ch_pi-ch_pi_prime),2)/ch_pi_prime);
+				System.out.println("else if2 clause: "+ chi_square);
+			}
+			else
+			{
+				chi_square = chi_square + (Math.pow((ch_pi-ch_pi_prime),2)/ch_pi_prime) + (Math.pow((ch_ei-ch_ei_prime),2)/ch_ei_prime);	
+				System.out.println("else clause: "+ chi_square);
+			}
+			
 			if (!(data_latest.size()==0) )
 			{
 				//System.out.println("Latest Attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
 				attr_next = get_attr_maxerr(data_latest,attr_list_latest);
-				/*System.out.println("Next, Attr with max error: "+attr_next.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
-				System.out.println("Data to be put into stack "+data_latest);*/
+				System.out.println("Next, Attr with max error: "+attr_next.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				System.out.println("Data to be put into stack "+data_latest);
 				/*System.out.println("After choosing root, attrs list: ");
 				for (int y=0;y<attr_list_latest.size();y++)
 				{
@@ -601,10 +734,61 @@ public class Entropy3 extends Attribute {
 				hash_map_all.put(map, "");
 				System.out.println("Peek into stack after push:  "+stack.peek());
 				map_inner_copy = map_inner;
+				
+
 
 			}
 		//	attr_list_latest = (ArrayList<Attribute>) getKeyFromValue(map_inner_right,attr_list_next);
+			
+			if (stop_mis>30)
+			{
+				System.out.println("+++++++++++ Breaking from for loop ++++++++++");
+				break;
+			}
 		}
+		
+		System.out.println("chi_square value for attr_latest "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]+ 
+				" is:  "+ chi_square);
+		Integer dof = new Integer(0);
+		dof = (attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]).size())-1;
+		System.out.println("DOF: "+dof);
+		System.out.println("unique values: "+attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]));
+		for (int i=0; i<3;i++)
+		{
+			ArrayList<String> chi_temp = new ArrayList<String>();
+			
+			chi_temp.add(dof.toString());
+			if (i==0)
+			{
+				chi_temp.add("alpha=0.5");
+				System.out.println("chi_square value from chi_map for alpha=0.5 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			else if(i==1)
+			{
+				chi_temp.add("alpha=0.05");
+				System.out.println("chi_square value from chi_map for alpha=0.05 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			else if(i==2)
+			{
+				chi_temp.add("alpha=0.01");
+				System.out.println("chi_square value from chi_map for alpha=0.01 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			
+		}
+		chi_square = 0;
+		System.out.println("Now, chi_square is: "+ chi_square);
 		
 		while (!stack.empty())
 		{
@@ -620,7 +804,7 @@ public class Entropy3 extends Attribute {
 			data_latest = (ArrayList<ArrayList<String>>) getOnlyKeyFromHashMap(temp);
 			/*System.out.println("Data_latest before calculation: "+data_latest);*/
 			key_final = temp.get(data_latest);
-			//System.out.println("key_final at this position: "+ key_final);
+			System.out.println("key_final at this position: "+ key_final);
 			HashMap<Attribute, Attribute> hash_temp = new HashMap<Attribute, Attribute>();
 			/*System.out.println("hash_temp before assigning: "+hash_temp);
 			System.out.println("map_latest.get(data_latest) value before assigning: "+map_latest.get(data_latest) );
@@ -630,9 +814,10 @@ public class Entropy3 extends Attribute {
 			attr_next = hash_temp.get(attr_latest);
 			attr_list_latest = (ArrayList<Attribute>) getOnlyKeyFromHashMap(map_latest.get(temp).get(hash_temp));
 			attr_list_next = map_latest.get(temp).get(hash_temp).get(attr_list_latest);
-			//System.out.println("Attribute latest before calculation: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0] );
-			def =  cal_miserr(data_latest, attr_latest);
-			//System.out.println("Calculation: "+def);
+			System.out.println("Attribute next before calculation: "+attr_next.h.keySet().toArray(new String[attr_latest.h.size()])[0] );
+			//def =  cal_miserr(data_latest, attr_latest);
+			def =  cal_miserr(data_latest, attr_next) - cal_miserr_data(data_latest);
+			System.out.println("Calculation: "+def);
 			if(def==0)
 			{
 				System.out.println("****Into 0 calculation loop***");
@@ -718,6 +903,12 @@ public class Entropy3 extends Attribute {
 				System.out.println("data_latest at end: "+data_latest);
 				System.out.println("attr_latest at end: "+attr_latest+"  "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
 				*/
+				if (stop_mis>30)
+				{
+					System.out.println("--------- Breaking from while loop --------");
+					break;
+				}
+				
 				build_decision_tree(data_latest);
 			}
 		}
@@ -740,6 +931,7 @@ public class Entropy3 extends Attribute {
 		HashMap<ArrayList<ArrayList<String>>, Attribute> child_parent = null;
 		Attribute p_temp = new Attribute();
 		ArrayList<ArrayList<String>> data_lat_temp = new ArrayList<ArrayList<String>>();
+		double ch_p=0, ch_e=0,ch_pi_prime = 0, ch_ei_prime = 0, ch_pi = 0, ch_ei = 0, chi_square = 0;
 
 	try{
 		if (!root_status){
@@ -778,7 +970,7 @@ public class Entropy3 extends Attribute {
 		System.out.println("key_final at beginning of loop: "+key_final);*/
 		unique_latest = attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
 		System.out.println("Unique elements: "+ unique_latest);
-		System.out.println("Size of unique_latest: "+ unique_latest.size());
+		//System.out.println("Size of unique_latest: "+ unique_latest.size());
 		
 		data_split_latest = split_data(data_latest,attr_latest);
 		//System.out.println("Split data latest: "+ data_split_latest);
@@ -786,14 +978,43 @@ public class Entropy3 extends Attribute {
 		//latest_temp = attr_latest;
 		ArrayList<String> key_temp = new ArrayList<String>();
 		data_lat_temp = data_latest;
-		System.out.println("data_latest size before for loop: "+data_latest.size());
+		//System.out.println("data_latest size before for loop: "+data_latest.size());
+		ch_p = get_p_from_data(data_latest);
+		ch_e = get_e_from_data(data_latest);
+		chi_square = 0;
 		
 		for (int f = 0; f<unique_latest.size();f++)
 		{
 			stop++;
 			latest_temp = attr_latest;
 			data_latest = data_split_latest.get(f);
-			System.out.println("Data_latest size inside for loop: "+data_latest.size());
+			ch_pi = get_p_from_data(data_latest);
+			ch_ei = get_e_from_data(data_latest);
+			ch_pi_prime = ch_p*((ch_pi+ch_ei)/(ch_p+ch_e));
+			ch_ei_prime = ch_e*((ch_pi+ch_ei)/(ch_p+ch_e));
+			System.out.println("value ch_pi: "+ch_pi +"---"+ "value ch_ei: "+ch_ei +"---"+
+					"value ch_pi_prime: "+ch_pi_prime +"---"+"value ch_ei_prime: "+ch_ei_prime +"---");
+			if (ch_pi_prime==0 && ch_ei_prime==0)
+			{
+				chi_square = chi_square;
+				System.out.println("if clause: "+ chi_square);
+			}
+			else if (ch_pi_prime==0)
+			{
+				chi_square = chi_square + (Math.pow((ch_ei-ch_ei_prime),2)/ch_ei_prime);
+				System.out.println("else if1 clause: "+ chi_square);
+			}
+			else if(ch_ei_prime==0)
+			{
+				chi_square = chi_square + (Math.pow((ch_pi-ch_pi_prime),2)/ch_pi_prime);
+				System.out.println("else if2 clause: "+ chi_square);
+			}
+			else
+			{
+				chi_square = chi_square + (Math.pow((ch_pi-ch_pi_prime),2)/ch_pi_prime) + (Math.pow((ch_ei-ch_ei_prime),2)/ch_ei_prime);	
+				System.out.println("else clause: "+ chi_square);
+			}
+			//System.out.println("Data_latest size inside for loop: "+data_latest.size());
 			if (!(data_latest.size()==0) )
 			{
 				System.out.println("Latest Attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
@@ -808,7 +1029,7 @@ public class Entropy3 extends Attribute {
 	/*****	attr_next = get_attr_maxerr(data_latest,attr_list_latest);    ****/
 				
 				System.out.println("Next, Attr with max error: "+attr_next.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
-				System.out.println("Data to be put into stack "+data_latest);
+				//System.out.println("Data to be put into stack "+data_latest);
 				/*System.out.println("After choosing root, attrs list: ");
 				for (int y=0;y<attr_list_latest.size();y++)
 				{
@@ -909,13 +1130,57 @@ public class Entropy3 extends Attribute {
 		//	attr_list_latest = (ArrayList<Attribute>) getKeyFromValue(map_inner_right,attr_list_next);
 		}
 		
+		System.out.println("chi_square value for attr_latest "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]+ 
+				" is:  "+ chi_square);
+		Integer dof = new Integer(0);
+		dof = (attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]).size())-1;
+		System.out.println("DOF: "+dof);
+		System.out.println("unique values: "+attr_latest.h.get(attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]));
+		for (int i=0; i<3;i++)
+		{
+			ArrayList<String> chi_temp = new ArrayList<String>();
+			
+			chi_temp.add(dof.toString());
+			if (i==0)
+			{
+				chi_temp.add("alpha=0.5");
+				System.out.println("chi_square value from chi_map for alpha=0.5 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			else if(i==1)
+			{
+				chi_temp.add("alpha=0.05");
+				System.out.println("chi_square value from chi_map for alpha=0.05 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			else if(i==2)
+			{
+				chi_temp.add("alpha=0.01");
+				System.out.println("chi_square value from chi_map for alpha=0.01 : "+chi_map.get(chi_temp));
+				if (Double.parseDouble(chi_map.get(chi_temp))<chi_square)
+				{
+					System.out.println("No pruning needed for attribute: "+attr_latest.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+				}
+			}
+			
+		}
+		chi_square = 0;
+		System.out.println("Now, chi_square is: "+ chi_square);
+		
+		
 		while (!stack.empty())
 		{
 			System.out.println("-------Into the stack-------");
 			System.out.println("Peek into stack before pop:  "+stack.peek());
 			map_latest = stack.pop();
 			//System.out.println("Testing empty stack after pop:   "+ stack.empty());
-			System.out.println("testing value of map_latest: "+map_latest);
+			//System.out.println("testing value of map_latest: "+map_latest);
 			//data_latest = (ArrayList<ArrayList<String>>) map_latest.keySet();
 			//System.out.println("Map_inner_copy: "+map_inner_copy);
 			//temp= new HashMap<ArrayList<ArrayList<String>>, ArrayList<String>>();
@@ -1038,14 +1303,13 @@ public class Entropy3 extends Attribute {
 	return null;	
 	}
 
-
  	public static ArrayList<String> cal_decision_value(ArrayList<ArrayList<String>> data)
  	{
 
  		System.out.println("main values: "+main);
  		String value = null;
  		ArrayList<String> result = new ArrayList<String>();
-		System.out.println("Size of data testing: "+data.size());
+		//System.out.println("Size of data testing: "+data.size());
 		Attribute leaf_p = new Attribute();
 		leaf_p.h.put("p", null);
 		Attribute leaf_e = new Attribute();
@@ -1055,8 +1319,9 @@ public class Entropy3 extends Attribute {
  		{
  			test = new ArrayList<String>();
  			Attribute r = root;
- 			System.out.println("******** In "+i+" th record************");
+ 			/*System.out.println("******** In "+i+" th record************");
  			System.out.println("Attribute r : "+ r.h.keySet().toArray(new String[attr_latest.h.size()])[0]);
+ 			*/
  			//System.out.println("r's leaf_value: "+ r.getLeaf_value());
  			/*while( (!(r.getLeaf_value().equals("p")) || !(r.getLeaf_value().equals("e"))))
  			{ 
@@ -1105,8 +1370,9 @@ public class Entropy3 extends Attribute {
  				}*/
  				r = r.getChild_map().get(value);
  			}
- 			System.out.println("*********  result untill now:********* "+ result);
+ 			//System.out.println("*********  result untill now:********* "+ result);
  		}
+ 		System.out.println("----Main ----: "+main);
 	return result;
  	}
  	
